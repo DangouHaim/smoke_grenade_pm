@@ -1,0 +1,6 @@
+name = Smoke Grenade
+author = Modder
+description = Throw smoke grenades that create lingering smoke clouds [noupload]
+tags = Tool
+version = 1
+preview_image = preview.jpg

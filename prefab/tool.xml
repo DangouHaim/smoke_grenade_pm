@@ -1,0 +1,9 @@
+<prefab version="2.0.0">
+	<group pos="0 0 0">
+		<body dynamic="false">
+			<voxbox pos="0 0 0" size="0.15 0.25 0.15" color="0.25 0.25 0.25" material="metal"/>
+			<voxbox pos="0 0.08 0" size="0.15 0.16 0.15" color="0.28 0.28 0.28" material="metal"/>
+			<voxbox pos="0 0.18 0" size="0.08 0.06 0.08" color="0.2 0.2 0.2" material="metal"/>
+		</body>
+	</group>
+</prefab>
