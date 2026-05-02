@@ -1,6 +1,6 @@
-name = Smoke Grenade
-author = Modder
-description = Throw smoke grenades that create lingering smoke clouds [noupload]
-tags = Tool
-version = 1
-preview_image = preview.jpg
+name = Smoke Grenade [MP]
+author = DangouHaim
+description = Throw smoke grenades that create lingering smoke clouds
+tags = Tool, Gameplay
+version = 2
+preview_image = preview.png
