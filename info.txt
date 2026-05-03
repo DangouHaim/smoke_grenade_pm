@@ -1,6 +1,6 @@
 name = Smoke Grenade [MP]
 author = DangouHaim
-description = Throw smoke grenades that create lingering smoke clouds
+description = Throw smoke grenades with interactive physics (vehicles push smoke, fire makes it rise)
 tags = Tool, Gameplay
 version = 2
 preview_image = preview.png

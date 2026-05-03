@@ -1,8 +1,10 @@
 #version 2
 
-local TOOL_ID = "smokegrenade"
+local TOOL_ID = "smokegrenadephysics"
 local GRENADE_COOLDOWN = 0.3
 local SMOKE_DURATION = 60.0
+local HEAT_SCAN_INTERVAL = 0.15
+local MAX_ACTIVE_GRENADES = 4
 
 function server.init()
     RegisterTool(TOOL_ID, "Smoke Grenade", "MOD/prefab/tool.xml", 1)
@@ -11,6 +13,7 @@ function server.init()
     server.lastFireTime = {}
     server.grenades = {}
     server.nextGrenadeId = 1
+    server.lastHeatScan = 0
 
     for p in Players() do
         server.lastFireTime[p] = 0
@@ -18,6 +21,24 @@ function server.init()
 end
 
 function server.tick(dt)
+    local currentTime = GetTime()
+    
+    local activeGenerators = {}
+    for _, g in ipairs(server.grenades) do
+        if g.active and g.generating then
+            table.insert(activeGenerators, g)
+        end
+    end
+    
+    if #activeGenerators > MAX_ACTIVE_GRENADES then
+        local toDisable = #activeGenerators - MAX_ACTIVE_GRENADES
+        for i = 1, toDisable do
+            if activeGenerators[i] then
+                activeGenerators[i].generating = false
+            end
+        end
+    end
+
     for p in Players() do
         if not server.lastFireTime[p] then
             server.lastFireTime[p] = 0
@@ -25,7 +46,7 @@ function server.tick(dt)
 
         if GetPlayerTool(p) == TOOL_ID then
             local currentTime = GetTime()
-
+            
             if InputDown("usetool", p) then
                 if currentTime - server.lastFireTime[p] >= GRENADE_COOLDOWN then
                     server.lastFireTime[p] = currentTime
@@ -59,7 +80,8 @@ function server.tick(dt)
                             id = server.nextGrenadeId,
                             body = body,
                             spawnTime = currentTime,
-                            active = true
+                            active = true,
+                            generating = true
                         })
 
                         server.nextGrenadeId = server.nextGrenadeId + 1
@@ -73,6 +95,63 @@ end
 function server.update(dt)
     local currentTime = GetTime()
 
+    if currentTime - server.lastHeatScan > HEAT_SCAN_INTERVAL then
+        server.lastHeatScan = currentTime
+        server.heatSources = {}
+        
+        local fireShapes = FindShapes("fire", true)
+        for _, s in ipairs(fireShapes) do
+            if IsHandleValid(s) then
+                local t = GetShapeWorldTransform(s)
+                if t then
+                    table.insert(server.heatSources, {
+                        pos = t.pos,
+                        type = "fire"
+                    })
+                end
+            end
+        end
+        
+        local explosionShapes = FindShapes("explosion", true)
+        for _, s in ipairs(explosionShapes) do
+            if IsHandleValid(s) then
+                local t = GetShapeWorldTransform(s)
+                if t then
+                    table.insert(server.heatSources, {
+                        pos = t.pos,
+                        type = "explosion"
+                    })
+                end
+            end
+        end
+        
+        local bombShapes = FindShapes("bomb", true)
+        for _, s in ipairs(bombShapes) do
+            if IsHandleValid(s) then
+                local t = GetShapeWorldTransform(s)
+                if t then
+                    table.insert(server.heatSources, {
+                        pos = t.pos,
+                        type = "explosion"
+                    })
+                end
+            end
+        end
+        
+        local dynamiteShapes = FindShapes("dynamite", true)
+        for _, s in ipairs(dynamiteShapes) do
+            if IsHandleValid(s) then
+                local t = GetShapeWorldTransform(s)
+                if t then
+                    table.insert(server.heatSources, {
+                        pos = t.pos,
+                        type = "explosion"
+                    })
+                end
+            end
+        end
+    end
+
     for _, grenade in ipairs(server.grenades) do
         if grenade.active and grenade.body then
             if not IsHandleValid(grenade.body) then
@@ -80,10 +159,10 @@ function server.update(dt)
             else
                 local elapsed = currentTime - grenade.spawnTime
 
-                if elapsed > 0.5 then
+                if elapsed > 0.5 and grenade.generating then
                     local bodyPos = GetBodyTransform(grenade.body).pos
 
-                    for j = 1, 2 do
+                    for j = 1, 3 do
                         local offset = Vec(
                             (math.random() - 0.5) * 0.3,
                             0.2 + math.random() * 0.3,
@@ -93,20 +172,45 @@ function server.update(dt)
 
                         ParticleReset()
                         ParticleType("smoke")
-                        ParticleAlpha(0.8, 0, "easeout")
+                        ParticleAlpha(0.6, 0, "easeout")
                         if j % 3 == 0 then ParticleColor(0.75, 0.75, 0.75) else ParticleColor(0.65, 0.65, 0.65) end
-                        ParticleRadius(1.2, 1.5, "easeout")
-                        ParticleDrag(2.0)
-                        ParticleGravity(-1.5)
-                        ParticleCollide(0, 0.5)
-                        ParticleSticky(0.2)
+                        ParticleRadius(0.5, 1.1, "easeout")
+                        ParticleDrag(3.0)
+                        ParticleGravity(-0.5)
+                        ParticleCollide(0, 0.1)
+                        ParticleSticky(0.02)
 
                         local velocity = Vec(
-                            (math.random() - 0.5) * 0.5,
-                            (math.random() - 0.3) * 0.8,
-                            (math.random() - 0.5) * 0.5
+                            (math.random() - 0.5) * 2.0,
+                            (math.random() - 0.1) * 2.5,
+                            (math.random() - 0.5) * 2.0
                         )
-                        SpawnParticle(smokePos, velocity, 10)
+                        
+                        local affectedByExplosion = false
+                        
+                        if server.heatSources then
+                            for _, heat in ipairs(server.heatSources) do
+                                local dist = VecLength(VecSub(bodyPos, heat.pos))
+                                if dist < 8.0 then
+                                    local strength = (8.0 - dist) / 8.0
+                                    if heat.type == "explosion" then
+                                        affectedByExplosion = true
+                                        local pushDir = VecNormalize(VecSub(bodyPos, heat.pos))
+                                        pushDir = VecAdd(pushDir, Vec(0, 0.3, 0))
+                                        velocity = VecAdd(velocity, VecScale(pushDir, strength * 18.0))
+                                    else
+                                        velocity = VecAdd(velocity, Vec(0, strength * 4.0, 0))
+                                    end
+                                end
+                            end
+                        end
+                        
+                        if affectedByExplosion then
+                            ParticleDrag(0.2)
+                            ParticleGravity(0.8)
+                        end
+                        
+                        SpawnParticle(smokePos, velocity, 30)
                     end
                 end
 
@@ -115,14 +219,15 @@ function server.update(dt)
                         Delete(grenade.body)
                     end
                     grenade.active = false
+                    grenade.generating = false
                 end
             end
         end
     end
-
+    
     local toRemove = {}
     for idx, grenade in ipairs(server.grenades) do
-        if not grenade.active or (grenade.body and not IsHandleValid(grenade.body)) then
+        if not grenade.active then
             table.insert(toRemove, idx)
         end
     end
@@ -163,7 +268,7 @@ function client.draw()
         UiTranslate(0, 30)
         UiFont("regular.ttf", 18)
         UiColor(1, 1, 1)
-        UiText("LMB to spawn - Grab and throw")
+        UiText("LMB to throw")
 
     UiPop()
 end
