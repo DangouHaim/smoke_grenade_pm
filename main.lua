@@ -4,12 +4,29 @@ local TOOL_ID = "smokegrenadephysics"
 local GRENADE_COOLDOWN = 0.3
 local SMOKE_DURATION = 60.0
 local HEAT_SCAN_INTERVAL = 0.15
-local MAX_ACTIVE_GRENADES = 4
-local MAX_INVENTORY = 3
+local UI_CURSOR_SHOW = 0
+local UI_CURSOR_HIDE_AND_LOCK = 2
 
 local playerData = {}
+local function isSettingsOpen()
+    return GetBool("savegame.mod.smokegrenade.settingsOpen")
+end
+
+-- settings with savegame defaults
+local function getMaxActive()
+    return tonumber(GetString("savegame.mod.smokegrenade.max_active")) or 4
+end
+local function getMaxInv()
+    return tonumber(GetString("savegame.mod.smokegrenade.max_inventory")) or 3
+end
+
+local MAX_ACTIVE_GRENADES = getMaxActive()
+local MAX_INVENTORY = getMaxInv()
 
 function server.init()
+    MAX_ACTIVE_GRENADES = getMaxActive()
+    MAX_INVENTORY = getMaxInv()
+
     RegisterTool(TOOL_ID, "Smoke Grenade", "MOD/prefab/tool.xml", 1)
     SetBool("game.tool." .. TOOL_ID .. ".enabled", true)
     SetString("game.tool." .. TOOL_ID .. ".ammo.display", " ")
@@ -59,7 +76,7 @@ function server.tick(dt)
         shared[tostring(p)] = { count = data.count, max = MAX_INVENTORY }
 
         if GetPlayerTool(p) == TOOL_ID then
-            if InputDown("usetool", p) then
+            if not isSettingsOpen() and InputDown("usetool", p) then
                 if currentTime - server.lastFireTime[p] >= GRENADE_COOLDOWN then
                     if data.count > 0 then
                         server.lastFireTime[p] = currentTime
@@ -110,7 +127,7 @@ function server.tick(dt)
                 end
             end
 
-            if InputPressed("q", p) and data.count > 0 then
+            if not isSettingsOpen() and InputPressed("q", p) and data.count > 0 then
                 local eye = GetPlayerEyeTransform(p)
                 local dropPos = TransformToParentPoint(eye, Vec(0.3, -0.2, 0.5))
 
@@ -150,7 +167,7 @@ function server.tick(dt)
             end
         end
 
-        if InputPressed("interact", p) then
+        if not isSettingsOpen() and InputPressed("interact", p) then
             local body = GetPlayerInteractBody(p)
             if body ~= 0 and HasTag(body, "pickUpGun") and HasTag(body, "smoke_count") then
                 if data.count < MAX_INVENTORY then
@@ -317,12 +334,111 @@ function client.tick(dt)
     if localPlayer ~= 0 and GetPlayerTool(localPlayer) == TOOL_ID then
         SetToolTransform(Transform(Vec(0.3, -0.2, -0.5), QuatEuler(0, 0, 0)))
     end
+
+    if PauseMenuButton("SmokeGrenade Settings", "main_bottom") then
+        client.showSettings = not client.showSettings
+        if client.showSettings then
+            SetBool("savegame.mod.smokegrenade.settingsOpen", true)
+            SetBool("game.player.disableinput", true)
+            UiSetCursorState(UI_CURSOR_SHOW)
+        else
+            SetBool("savegame.mod.smokegrenade.settingsOpen", false)
+            SetBool("game.player.disableinput", false)
+        end
+    end
 end
 
 function client.draw()
     local localPlayer = GetLocalPlayer()
-    if not localPlayer or localPlayer == 0 then return end
 
+    if localPlayer ~= 0 and InputPressed("l", localPlayer) then
+        client.showSettings = not client.showSettings
+        if not client.showSettings then
+            SetBool("savegame.mod.smokegrenade.settingsOpen", false)
+            SetBool("game.player.disableinput", false)
+        end
+    end
+
+    if client.showSettings then
+        SetBool("savegame.mod.smokegrenade.settingsOpen", true)
+        SetBool("game.player.disableinput", true)
+        UiSetCursorState(UI_CURSOR_SHOW)
+        UiMakeInteractive()
+        UiBlur(0.5)
+
+        local w = UiWidth()
+        local h = UiHeight()
+
+        local inv = getMaxInv()
+        local act = getMaxActive()
+        local INV_MAX = 999
+        local ACT_MAX = 20
+
+        UiPush()
+            UiTranslate(w / 2 - 280, h * 0.25)
+
+            UiColor(0, 0, 0, 0.85)
+            UiRect(560, 220)
+            UiColor(0.4, 0.4, 0.4)
+            UiRect(560, 2)
+
+            UiTranslate(10, 10)
+            UiColor(0.9, 0.9, 0.9)
+            UiFont("bold.ttf", 20)
+            UiText("SmokeGrenade Settings")
+
+            UiTranslate(0, 40)
+            UiColor(1, 1, 1)
+            UiFont("regular.ttf", 18)
+            UiText("Max Inventory: " .. inv)
+            UiTranslate(160, -2)
+            if UiTextButton("-100", 40, 24) and inv > 1 then
+                SetString("savegame.mod.smokegrenade.max_inventory", tostring(math.max(1, inv - 100)))
+            end
+            UiTranslate(42, 0)
+            if UiTextButton("-10", 32, 24) and inv > 1 then
+                SetString("savegame.mod.smokegrenade.max_inventory", tostring(math.max(1, inv - 10)))
+            end
+            UiTranslate(34, 0)
+            if UiTextButton("-", 24, 24) and inv > 1 then
+                SetString("savegame.mod.smokegrenade.max_inventory", tostring(inv - 1))
+            end
+            UiTranslate(27, 0)
+            if UiTextButton("+", 24, 24) and inv < INV_MAX then
+                SetString("savegame.mod.smokegrenade.max_inventory", tostring(inv + 1))
+            end
+            UiTranslate(27, 0)
+            if UiTextButton("+10", 32, 24) and inv < INV_MAX then
+                SetString("savegame.mod.smokegrenade.max_inventory", tostring(math.min(INV_MAX, inv + 10)))
+            end
+            UiTranslate(34, 0)
+            if UiTextButton("+100", 40, 24) and inv < INV_MAX then
+                SetString("savegame.mod.smokegrenade.max_inventory", tostring(math.min(INV_MAX, inv + 100)))
+            end
+
+            UiTranslate(-232, 35)
+            UiText("Max Active:   " .. act)
+            UiTranslate(160, -2)
+            if UiTextButton("-", 28, 24) and act > 1 then
+                SetString("savegame.mod.smokegrenade.max_active", tostring(act - 1))
+            end
+            UiTranslate(32, 0)
+            if UiTextButton("+", 28, 24) and act < ACT_MAX then
+                SetString("savegame.mod.smokegrenade.max_active", tostring(act + 1))
+            end
+
+            UiTranslate(-274, 50)
+            UiColor(0.7, 0.7, 0.7)
+            if UiTextButton("  CLOSE  ", 80, 28) then
+                client.showSettings = false
+                SetBool("savegame.mod.smokegrenade.settingsOpen", false)
+                SetBool("game.player.disableinput", false)
+            end
+        UiPop()
+        return
+    end
+
+    if not localPlayer or localPlayer == 0 then return end
     local currentTool = GetPlayerTool(localPlayer)
     if currentTool ~= TOOL_ID then return end
 
