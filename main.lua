@@ -368,72 +368,122 @@ function client.draw()
 
         local w = UiWidth()
         local h = UiHeight()
-
         local inv = getMaxInv()
         local act = getMaxActive()
         local INV_MAX = 999
         local ACT_MAX = 20
+        local PW = 560
+        local PH = 440
+        local L = 20
 
         UiPush()
-            UiTranslate(w / 2 - 280, h * 0.25)
+            local ox = w / 2 - PW / 2
+            local oy = h * 0.10
+            UiTranslate(ox, oy)
 
-            UiColor(0, 0, 0, 0.85)
-            UiRect(560, 220)
-            UiColor(0.4, 0.4, 0.4)
-            UiRect(560, 2)
+            UiColor(0, 0, 0, 0.9)
+            UiRect(PW, PH)
+            UiColor(0.35, 0.35, 0.35)
+            UiRect(PW, 2)
 
-            UiTranslate(10, 10)
+            UiTranslate(L, 46)
             UiColor(0.9, 0.9, 0.9)
-            UiFont("bold.ttf", 20)
+            UiFont("bold.ttf", 26)
             UiText("SmokeGrenade Settings")
 
-            UiTranslate(0, 40)
+            UiTranslate(0, 28)
+            UiColor(0.4, 0.4, 0.4)
+            UiRect(PW - 40, 1)
+
+            UiTranslate(0, 18)
+            UiColor(0.6, 0.6, 0.6)
+            UiFont("bold.ttf", 18)
+            UiText("-- INVENTORY --")
+
+            UiTranslate(0, 26)
             UiColor(1, 1, 1)
-            UiFont("regular.ttf", 18)
-            UiText("Max Inventory: " .. inv)
-            UiTranslate(160, -2)
-            if UiTextButton("-100", 40, 24) and inv > 1 then
+            UiFont("regular.ttf", 22)
+            UiText("Max Grenade Count: " .. inv)
+
+            UiTranslate(0, 32)
+            if UiTextButton("-100", 50, 32) and inv > 1 then
                 SetString("savegame.mod.smokegrenade.max_inventory", tostring(math.max(1, inv - 100)))
             end
-            UiTranslate(42, 0)
-            if UiTextButton("-10", 32, 24) and inv > 1 then
+            UiTranslate(54, 0)
+            if UiTextButton("-10", 40, 32) and inv > 1 then
                 SetString("savegame.mod.smokegrenade.max_inventory", tostring(math.max(1, inv - 10)))
             end
-            UiTranslate(34, 0)
-            if UiTextButton("-", 24, 24) and inv > 1 then
+            UiTranslate(44, 0)
+            if UiTextButton("-", 32, 32) and inv > 1 then
                 SetString("savegame.mod.smokegrenade.max_inventory", tostring(inv - 1))
             end
-            UiTranslate(27, 0)
-            if UiTextButton("+", 24, 24) and inv < INV_MAX then
+            UiTranslate(36, 0)
+            if UiTextButton("+", 32, 32) and inv < INV_MAX then
                 SetString("savegame.mod.smokegrenade.max_inventory", tostring(inv + 1))
             end
-            UiTranslate(27, 0)
-            if UiTextButton("+10", 32, 24) and inv < INV_MAX then
+            UiTranslate(36, 0)
+            if UiTextButton("+10", 40, 32) and inv < INV_MAX then
                 SetString("savegame.mod.smokegrenade.max_inventory", tostring(math.min(INV_MAX, inv + 10)))
             end
-            UiTranslate(34, 0)
-            if UiTextButton("+100", 40, 24) and inv < INV_MAX then
+            UiTranslate(44, 0)
+            if UiTextButton("+100", 50, 32) and inv < INV_MAX then
                 SetString("savegame.mod.smokegrenade.max_inventory", tostring(math.min(INV_MAX, inv + 100)))
             end
 
-            UiTranslate(-232, 35)
-            UiText("Max Active:   " .. act)
-            UiTranslate(160, -2)
-            if UiTextButton("-", 28, 24) and act > 1 then
+            UiTranslate(-214, 36)
+            UiColor(0.7, 0.7, 0.7)
+            UiFont("regular.ttf", 16)
+            UiText("How many smoke grenades you carry at spawn.")
+
+            UiTranslate(0, 22)
+            UiColor(0.4, 0.4, 0.4)
+            UiRect(PW - 40, 1)
+
+            UiTranslate(0, 18)
+            UiColor(0.6, 0.6, 0.6)
+            UiFont("bold.ttf", 18)
+            UiText("-- PERFORMANCE --")
+
+            UiTranslate(0, 26)
+            UiColor(1, 1, 1)
+            UiFont("regular.ttf", 22)
+            UiText("Max Active Clouds: " .. act)
+
+            UiTranslate(0, 32)
+            if UiTextButton("-", 36, 32) and act > 1 then
                 SetString("savegame.mod.smokegrenade.max_active", tostring(act - 1))
             end
-            UiTranslate(32, 0)
-            if UiTextButton("+", 28, 24) and act < ACT_MAX then
+            UiTranslate(40, 0)
+            if UiTextButton("+", 36, 32) and act < ACT_MAX then
                 SetString("savegame.mod.smokegrenade.max_active", tostring(act + 1))
             end
 
-            UiTranslate(-274, 50)
+            UiTranslate(-40, 36)
             UiColor(0.7, 0.7, 0.7)
-            if UiTextButton("  CLOSE  ", 80, 28) then
+            UiFont("regular.ttf", 16)
+            UiText("Max simultaneous smoke clouds. Optimal: 4 for performance.")
+
+            UiTranslate(0, 22)
+            UiColor(0.4, 0.4, 0.4)
+            UiRect(PW - 40, 1)
+
+            UiTranslate(0, 14)
+            UiColor(0.7, 0.7, 0.7)
+            if UiTextButton("  RESET DEFAULTS  ", 180, 32) then
+                SetString("savegame.mod.smokegrenade.max_inventory", "3")
+                SetString("savegame.mod.smokegrenade.max_active", "4")
+            end
+            UiTranslate(200, 0)
+            if UiTextButton("  CLOSE  ", 100, 32) then
                 client.showSettings = false
                 SetBool("savegame.mod.smokegrenade.settingsOpen", false)
                 SetBool("game.player.disableinput", false)
             end
+
+            UiTranslate(-90, 40)
+            UiColor(0.5, 0.5, 0.5)
+            UiFont("regular.ttf", 15)
+            UiText("* Changes apply on next round start.")
         UiPop()
         return
     end
