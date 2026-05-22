@@ -346,6 +346,12 @@ function client.tick(dt)
             SetBool("game.player.disableinput", false)
         end
     end
+
+    if client.showSettings and InputPressed("pause") then
+        client.showSettings = false
+        SetBool("savegame.mod.smokegrenade.settingsOpen", false)
+        SetBool("game.player.disableinput", false)
+    end
 end
 
 function client.draw()
@@ -375,10 +381,10 @@ function client.draw()
         local PW = 560
         local PH = 440
         local L = 20
+        local ox = w / 2 - PW / 2
+        local oy = (h - PH) / 2
 
         UiPush()
-            local ox = w / 2 - PW / 2
-            local oy = h * 0.10
             UiTranslate(ox, oy)
 
             UiColor(0, 0, 0, 0.9)
@@ -435,7 +441,7 @@ function client.draw()
             UiFont("regular.ttf", 16)
             UiText("How many smoke grenades you carry at spawn.")
 
-            UiTranslate(0, 22)
+            UiTranslate(0, 18)
             UiColor(0.4, 0.4, 0.4)
             UiRect(PW - 40, 1)
 
@@ -485,6 +491,7 @@ function client.draw()
             UiFont("regular.ttf", 15)
             UiText("* Changes apply on next round start.")
         UiPop()
+
         return
     end
 
