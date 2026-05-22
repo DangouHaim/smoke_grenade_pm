@@ -5,10 +5,14 @@ local GRENADE_COOLDOWN = 0.3
 local SMOKE_DURATION = 60.0
 local HEAT_SCAN_INTERVAL = 0.15
 local MAX_ACTIVE_GRENADES = 4
+local MAX_INVENTORY = 3
+
+local playerData = {}
 
 function server.init()
     RegisterTool(TOOL_ID, "Smoke Grenade", "MOD/prefab/tool.xml", 1)
     SetBool("game.tool." .. TOOL_ID .. ".enabled", true)
+    SetString("game.tool." .. TOOL_ID .. ".ammo.display", " ")
 
     server.lastFireTime = {}
     server.grenades = {}
@@ -17,12 +21,14 @@ function server.init()
 
     for p in Players() do
         server.lastFireTime[p] = 0
+        playerData[p] = { count = MAX_INVENTORY }
+        SetToolAmmo(TOOL_ID, MAX_INVENTORY, p)
     end
 end
 
 function server.tick(dt)
     local currentTime = GetTime()
-    
+
     local activeGenerators = {}
     for _, g in ipairs(server.grenades) do
         if g.active and g.generating then
@@ -43,49 +49,118 @@ function server.tick(dt)
         if not server.lastFireTime[p] then
             server.lastFireTime[p] = 0
         end
+        if not playerData[p] then
+            playerData[p] = { count = MAX_INVENTORY }
+            SetToolAmmo(TOOL_ID, MAX_INVENTORY, p)
+        end
+
+        local data = playerData[p]
+        if not data then data = { count = 0 } end
+        shared[tostring(p)] = { count = data.count, max = MAX_INVENTORY }
 
         if GetPlayerTool(p) == TOOL_ID then
-            local currentTime = GetTime()
-            
             if InputDown("usetool", p) then
                 if currentTime - server.lastFireTime[p] >= GRENADE_COOLDOWN then
-                    server.lastFireTime[p] = currentTime
+                    if data.count > 0 then
+                        server.lastFireTime[p] = currentTime
+                        data.count = data.count - 1
+                        SetToolAmmo(TOOL_ID, data.count, p)
 
-                    local camTransform = GetPlayerCameraTransform(p)
-                    local startPos = camTransform.pos
-                    local aimDir = TransformToParentVec(camTransform, Vec(0, 0, -1))
+                        if data.count == 0 then
+                            SetToolEnabled(TOOL_ID, false, p)
+                            SetPlayerTool("empty", p)
+                        end
 
-                    local throwPos = VecAdd(startPos, VecScale(aimDir, 1.0))
+                        local camTransform = GetPlayerCameraTransform(p)
+                        local startPos = camTransform.pos
+                        local aimDir = TransformToParentVec(camTransform, Vec(0, 0, -1))
 
-                    local spawned = Spawn("MOD/prefab/throwable.xml", Transform(throwPos, QuatEuler(0, 0, 0)))
+                        local throwPos = VecAdd(startPos, VecScale(aimDir, 1.0))
 
-                    local body = nil
-                    if spawned and #spawned > 0 then
-                        for _, ent in ipairs(spawned) do
-                            if GetEntityType(ent) == "body" then
-                                body = ent
-                                break
-                            elseif GetEntityType(ent) == "shape" then
-                                body = GetShapeBody(ent)
-                                break
+                        local spawned = Spawn("MOD/prefab/throwable.xml", Transform(throwPos, QuatEuler(0, 0, 0)))
+
+                        local body = nil
+                        if spawned and #spawned > 0 then
+                            for _, ent in ipairs(spawned) do
+                                if GetEntityType(ent) == "body" then
+                                    body = ent
+                                    break
+                                elseif GetEntityType(ent) == "shape" then
+                                    body = GetShapeBody(ent)
+                                    break
+                                end
                             end
                         end
+
+                        if body then
+                            local throwVel = VecScale(aimDir, 20)
+                            SetBodyVelocity(body, throwVel)
+
+                            table.insert(server.grenades, {
+                                id = server.nextGrenadeId,
+                                body = body,
+                                spawnTime = currentTime,
+                                active = true,
+                                generating = true
+                            })
+
+                            server.nextGrenadeId = server.nextGrenadeId + 1
+                        end
                     end
+                end
+            end
 
-                    if body then
-                        local throwVel = VecScale(aimDir, 20)
-                        SetBodyVelocity(body, throwVel)
+            if InputPressed("q", p) and data.count > 0 then
+                local eye = GetPlayerEyeTransform(p)
+                local dropPos = TransformToParentPoint(eye, Vec(0.3, -0.2, 0.5))
 
-                        table.insert(server.grenades, {
-                            id = server.nextGrenadeId,
-                            body = body,
-                            spawnTime = currentTime,
-                            active = true,
-                            generating = true
-                        })
-
-                        server.nextGrenadeId = server.nextGrenadeId + 1
+                local spawned = Spawn("MOD/prefab/tool_dropped.xml", Transform(dropPos, eye.rot))
+                local spawnedBody = nil
+                if spawned and #spawned > 0 then
+                    for _, ent in ipairs(spawned) do
+                        if GetEntityType(ent) == "body" then
+                            spawnedBody = ent
+                            break
+                        elseif GetEntityType(ent) == "shape" then
+                            local body = GetShapeBody(ent)
+                            if body then
+                                spawnedBody = body
+                            end
+                            break
+                        end
                     end
+                end
+
+                if spawnedBody then
+                    SetTag(spawnedBody, "smoke_count", "1")
+
+                    local fwd = TransformToParentVec(eye, Vec(0, -0.2, -1))
+                    local playerVel = GetPlayerVelocity(p)
+                    local dropVel = VecAdd(playerVel, VecScale(fwd, 10.0))
+                    SetBodyVelocity(spawnedBody, dropVel)
+                    SetBodyAngularVelocity(spawnedBody, Vec(8.0, 4.0, 2.0))
+
+                    data.count = data.count - 1
+                    SetToolAmmo(TOOL_ID, data.count, p)
+                    if data.count == 0 then
+                        SetToolEnabled(TOOL_ID, false, p)
+                        SetPlayerTool("empty", p)
+                    end
+                end
+            end
+        end
+
+        if InputPressed("interact", p) then
+            local body = GetPlayerInteractBody(p)
+            if body ~= 0 and HasTag(body, "pickUpGun") and HasTag(body, "smoke_count") then
+                if data.count < MAX_INVENTORY then
+                    data.count = data.count + 1
+                    SetToolAmmo(TOOL_ID, data.count, p)
+                    if GetPlayerTool(p) ~= TOOL_ID then
+                        SetToolEnabled(TOOL_ID, true, p)
+                        SetPlayerTool(TOOL_ID, p)
+                    end
+                    Delete(body)
                 end
             end
         end
@@ -251,24 +326,33 @@ function client.draw()
     local currentTool = GetPlayerTool(localPlayer)
     if currentTool ~= TOOL_ID then return end
 
+    local s = shared[tostring(localPlayer)]
+    local count = s and s.count or 0
+    local maxCount = s and s.max or MAX_INVENTORY
+
     local w = UiWidth()
     local h = UiHeight()
 
     UiPush()
-        UiTranslate(w - 280, h - 80)
+        UiTranslate(w - 300, h - 110)
 
         UiColor(0, 0, 0, 0.6)
-        UiRect(260, 60)
+        UiRect(280, 90)
 
         UiTranslate(10, 10)
         UiColor(0.7, 0.7, 0.7)
-        UiFont("bold.ttf", 24)
+        UiFont("bold.ttf", 22)
         UiText("SMOKE GRENADE")
 
-        UiTranslate(0, 30)
-        UiFont("regular.ttf", 18)
+        UiTranslate(0, 25)
+        UiFont("bold.ttf", 20)
         UiColor(1, 1, 1)
-        UiText("LMB to throw")
+        UiText(count .. "/" .. maxCount)
+
+        UiTranslate(0, 25)
+        UiFont("regular.ttf", 16)
+        UiColor(0.8, 0.8, 0.8)
+        UiText("LMB- throw | Q- drop")
 
     UiPop()
 end
