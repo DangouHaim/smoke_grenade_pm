@@ -368,6 +368,7 @@ function client.draw()
     if client.showSettings then
         SetBool("savegame.mod.smokegrenade.settingsOpen", true)
         SetBool("game.player.disableinput", true)
+
         UiSetCursorState(UI_CURSOR_SHOW)
         UiMakeInteractive()
         UiBlur(0.5)
@@ -384,6 +385,13 @@ function client.draw()
         local ox = w / 2 - PW / 2
         local oy = (h - PH) / 2
 
+        local closeSettings = function()
+            client.showSettings = false
+            SetBool("savegame.mod.smokegrenade.settingsOpen", false)
+            SetBool("game.player.disableinput", false)
+        end
+
+        -- Panel FIRST (captures clicks on panel elements)
         UiPush()
             UiTranslate(ox, oy)
 
@@ -481,9 +489,7 @@ function client.draw()
             end
             UiTranslate(200, 0)
             if UiTextButton("  CLOSE  ", 100, 32) then
-                client.showSettings = false
-                SetBool("savegame.mod.smokegrenade.settingsOpen", false)
-                SetBool("game.player.disableinput", false)
+                closeSettings()
             end
 
             UiTranslate(-90, 40)
