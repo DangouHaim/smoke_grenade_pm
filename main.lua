@@ -20,6 +20,22 @@ local function getMaxInv()
     return tonumber(GetString("savegame.mod.smokegrenade.max_inventory")) or 3
 end
 
+local function getClearEnabled()
+    local s = GetString("savegame.mod.smokegrenade.clear_enabled")
+    if s == nil then return true end
+    return s == "true"
+end
+
+local function getClearKey()
+    return GetString("savegame.mod.smokegrenade.clear_key") or "u"
+end
+
+local function getClearForClients()
+    local s = GetString("savegame.mod.smokegrenade.clear_for_clients")
+    if s == nil then return false end
+    return s == "true"
+end
+
 local MAX_ACTIVE_GRENADES = getMaxActive()
 local MAX_INVENTORY = getMaxInv()
 
@@ -179,6 +195,23 @@ function server.tick(dt)
                     end
                     Delete(body)
                 end
+            end
+        end
+
+        if getClearEnabled() then
+            local canClear = IsPlayerHost(p)
+            if getClearForClients() then
+                canClear = true
+            end
+            if canClear and not isSettingsOpen() and InputPressed(getClearKey(), p) then
+                for _, grenade in ipairs(server.grenades) do
+                    if grenade.active and grenade.body and IsHandleValid(grenade.body) then
+                        Delete(grenade.body)
+                    end
+                    grenade.active = false
+                    grenade.generating = false
+                end
+                server.grenades = {}
             end
         end
     end
@@ -390,7 +423,7 @@ function client.draw()
         local INV_MAX = 999
         local ACT_MAX = 20
         local PW = 560
-        local PH = 440
+        local PH = 620
         local L = 20
         local ox = w / 2 - PW / 2
         local oy = (h - PH) / 2
@@ -491,11 +524,72 @@ function client.draw()
             UiColor(0.4, 0.4, 0.4)
             UiRect(PW - 40, 1)
 
+            UiTranslate(0, 18)
+            UiColor(0.6, 0.6, 0.6)
+            UiFont("bold.ttf", 18)
+            UiText("-- CLEAR --")
+
+            UiTranslate(0, 26)
+            UiColor(1, 1, 1)
+            UiFont("regular.ttf", 22)
+            if UiTextButton("Clear All: " .. (getClearEnabled() and "ON" or "OFF"), 200, 28) then
+                SetString("savegame.mod.smokegrenade.clear_enabled", tostring(not getClearEnabled()))
+            end
+
+            UiTranslate(0, 38)
+            UiColor(1, 1, 1)
+            UiFont("regular.ttf", 22)
+            UiText("Key: ")
+
+            local curKey = getClearKey()
+            UiTranslate(56, 0)
+            if curKey == "u" then
+                UiColor(0.3, 0.7, 0.3)
+            else
+                UiColor(0.5, 0.5, 0.5)
+            end
+            if UiTextButton("U", 36, 32) then
+                SetString("savegame.mod.smokegrenade.clear_key", "u")
+            end
+            UiTranslate(40, 0)
+            if curKey == "k" then
+                UiColor(0.3, 0.7, 0.3)
+            else
+                UiColor(0.5, 0.5, 0.5)
+            end
+            if UiTextButton("K", 36, 32) then
+                SetString("savegame.mod.smokegrenade.clear_key", "k")
+            end
+
+            UiTranslate(-96, 36)
+            UiColor(0.7, 0.7, 0.7)
+            UiFont("regular.ttf", 16)
+            UiText("Press " .. getClearKey():upper() .. " to clear all grenades and smoke.")
+
+            UiTranslate(0, 22)
+            UiColor(0.6, 0.6, 0.6)
+            UiFont("regular.ttf", 22)
+            if UiTextButton("Allow Clients: " .. (getClearForClients() and "YES" or "NO"), 220, 28) then
+                SetString("savegame.mod.smokegrenade.clear_for_clients", tostring(not getClearForClients()))
+            end
+
+            UiTranslate(0, 36)
+            UiColor(0.7, 0.7, 0.7)
+            UiFont("regular.ttf", 16)
+            UiText("Allow non-host players to clear.")
+
+            UiTranslate(0, 22)
+            UiColor(0.4, 0.4, 0.4)
+            UiRect(PW - 40, 1)
+
             UiTranslate(0, 14)
             UiColor(0.7, 0.7, 0.7)
             if UiTextButton("  RESET DEFAULTS  ", 180, 32) then
                 SetString("savegame.mod.smokegrenade.max_inventory", "3")
                 SetString("savegame.mod.smokegrenade.max_active", "4")
+                SetString("savegame.mod.smokegrenade.clear_enabled", "true")
+                SetString("savegame.mod.smokegrenade.clear_key", "u")
+                SetString("savegame.mod.smokegrenade.clear_for_clients", "false")
             end
             UiTranslate(200, 0)
             if UiTextButton("  CLOSE  ", 100, 32) then
