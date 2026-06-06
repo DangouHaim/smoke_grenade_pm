@@ -331,8 +331,18 @@ end
 
 function client.tick(dt)
     local localPlayer = GetLocalPlayer()
+
     if localPlayer ~= 0 and GetPlayerTool(localPlayer) == TOOL_ID then
         SetToolTransform(Transform(Vec(0.3, -0.2, -0.5), QuatEuler(0, 0, 0)))
+    end
+
+    if not IsPlayerHost() then
+        if client.showSettings then
+            client.showSettings = false
+            SetBool("savegame.mod.smokegrenade.settingsOpen", false)
+            SetBool("game.player.disableinput", false)
+        end
+        return
     end
 
     if PauseMenuButton("SmokeGrenade Settings", "main_bottom") then
@@ -357,7 +367,7 @@ end
 function client.draw()
     local localPlayer = GetLocalPlayer()
 
-    if localPlayer ~= 0 and InputPressed("l", localPlayer) then
+    if localPlayer ~= 0 and IsPlayerHost() and InputPressed("l", localPlayer) then
         client.showSettings = not client.showSettings
         if not client.showSettings then
             SetBool("savegame.mod.smokegrenade.settingsOpen", false)
@@ -365,7 +375,7 @@ function client.draw()
         end
     end
 
-    if client.showSettings then
+    if client.showSettings and IsPlayerHost() then
         SetBool("savegame.mod.smokegrenade.settingsOpen", true)
         SetBool("game.player.disableinput", true)
 
